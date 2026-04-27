@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>沖繩拖曳式行程表｜5/4–5/8</title>
+  <style>
+    :root {
+      --bg: #eef7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --line: #e4e7ec;
+      --soft: #f8fafc;
+      --primary: #0f172a;
+      --primary-2: #1e293b;
+      --sky: #e0f2fe;
+      --sky-text: #0369a1;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      background: linear-gradient(180deg, #e0f2fe 0%, #ffffff 42%, #f1f5f9 100%);
+      color: var(--text);
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .hero {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .hero-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--sky);
+      color: var(--sky-text);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 12px 0 8px;
+      font-size: clamp(26px, 4vw, 42px);
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      margin: 0;
+      max-width: 860px;
+      color: var(--muted);
+      line-height: 1.75;
+      font-size: 15px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--text);
+      border-radius: 14px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.04);
+    }
+
+    .btn:hover {
+      background: #f8fafc;
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .btn.primary:hover {
+      background: var(--primary-2);
+    }
+
+    .planner-wrap {
+      overflow-x: auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+    }
+
+    .planner-grid {
+      display: grid;
+      min-width: 980px;
+    }
+
+    .cell {
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      min-height: 90px;
+      padding: 8px;
+      background: white;
+    }
+
+    .cell.drop-hover {
+      background: #e0f2fe;
+      outline: 2px dashed #38bdf8;
+      outline-offset: -5px;
+    }
+
+    .time-cell, .day-head, .corner-cell {
+      background: #f8fafc;
+      font-weight: 800;
+    }
+
+    .corner-cell {
+      position: sticky;
+      left: 0;
+      z-index: 5;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .time-cell {
+      position: sticky;
+      left: 0;
+      z-index: 4;
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 14px;
+    }
+
+    .day-head {
+      padding: 12px;
+      min-height: 72px;
+    }
+
+    .day-label {
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .day-title {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .event-card {
+      background: white;
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      border-radius: 14px;
+      padding: 9px;
+      margin-bottom: 8px;
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+      cursor: grab;
+      user-select: none;
+      position: relative;
+    }
+
+    .event-card:active, .attraction-card:active {
+      cursor: grabbing;
+    }
+
+    .event-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .event-title {
+      font-size: 12px;
+      font-weight: 850;
+      line-height: 1.35;
+      padding-right: 20px;
+    }
+
+    .remove-event {
+      position: absolute;
+      right: 7px;
+      top: 7px;
+      border: 0;
+      background: #f1f5f9;
+      color: #64748b;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      cursor: pointer;
+      display: none;
+    }
+
+    .event-card:hover .remove-event {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pool {
+      margin-top: 20px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+
+    .pool-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .pool h2 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .pool p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      border: 0;
+      background: #f1f5f9;
+      color: #475569;
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .filter-btn.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .attraction-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .attraction-card {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: white;
+      padding: 16px;
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+      cursor: grab;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .attraction-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.09);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      border: 1px solid transparent;
+    }
+
+    .badge.city { background: #f1f5f9; color: #334155; border-color: #e2e8f0; }
+    .badge.ocean { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+    .badge.culture { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .badge.shopping { background: #f3e8ff; color: #7e22ce; border-color: #e9d5ff; }
+    .badge.rainy { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+    .badge.transit { background: #ffe4e6; color: #be123c; border-color: #fecdd3; }
+
+    .info-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #475569;
+      border-radius: 999px;
+      width: 34px;
+      height: 34px;
+      cursor: pointer;
+      font-weight: 900;
+    }
+
+    .attraction-title {
+      margin: 12px 0 8px;
+      font-size: 15px;
+      line-height: 1.35;
+      font-weight: 900;
+    }
+
+    .attraction-detail {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .note-preview {
+      margin-top: 10px;
+      color: #667085;
+      font-size: 12px;
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .tips {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .tip-card {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .tip-card h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .tip-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.46);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal {
+      width: min(560px, 100%);
+      background: white;
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 24px 80px rgba(15, 23, 42, 0.25);
+      animation: pop 0.18s ease-out;
+    }
+
+    @keyframes pop {
+      from { transform: translateY(14px) scale(0.98); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .modal h2 {
+      margin: 12px 0 0;
+      font-size: 26px;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    .close-btn {
+      border: 0;
+      background: #f1f5f9;
+      color: #475569;
+      border-radius: 999px;
+      width: 38px;
+      height: 38px;
+      cursor: pointer;
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .modal-info {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      background: #f8fafc;
+      border-radius: 18px;
+      padding: 14px;
+      color: #475569;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .modal-info b {
+      color: var(--text);
+    }
+
+    .modal-note {
+      margin-top: 16px;
+      line-height: 1.8;
+      color: #475569;
+    }
+
+    .modal-note h3 {
+      margin: 0 0 6px;
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .status {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1100px) {
+      .attraction-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .tips {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        padding: 14px;
+      }
+      .hero, .pool {
+        padding: 18px;
+        border-radius: 22px;
+      }
+      .attraction-grid {
+        grid-template-columns: 1fr;
+      }
+      .modal-info {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-row">
+        <div>
+          <div class="tag">📅 Okinawa Trip Planner</div>
+          <h1>沖繩 5/4–5/8 拖曳式行程表</h1>
+          <p class="subtitle">
+            上方是日期 × 小時表格；下方景點卡可拖曳到指定日期與時間。已先放入一版 5/4–5/8、無租車、含美麗海水族館套裝行程的初始規劃。點擊景點卡上的「i」可以看附加備註。
+          </p>
+          <div class="status" id="saveStatus">行程會同步到 Firebase Firestore。</div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="exportBtn">匯出 JSON</button>
+          <button class="btn" id="importBtn">匯入 JSON</button>
+          <button class="btn primary" id="resetBtn">重置初始行程</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="planner-wrap">
+      <div class="planner-grid" id="plannerGrid"></div>
+    </section>
+
+    <section class="pool">
+      <div class="pool-head">
+        <div>
+          <h2>景點選項池</h2>
+          <p>拖曳卡片到上方表格；點擊資訊圖示可看備註與安排建議。</p>
+        </div>
+        <div class="filters" id="filters"></div>
+      </div>
+      <div class="attraction-grid" id="attractionGrid"></div>
+    </section>
+
+    <section class="tips">
+      <div class="tip-card">
+        <h3>建議核心邏輯</h3>
+        <p>北部景點距離遠，無租車時優先用套裝行程處理；那霸市區、瀨長島、美國村則用單軌、巴士與短程計程車補足。</p>
+      </div>
+      <div class="tip-card">
+        <h3>5/8 回台安排</h3>
+        <p>因為已確定 5/8 回台，5/7 建議排美國村，5/8 只留瀨長島、南部輕量行程或機場採買，避免回程日太趕。</p>
+      </div>
+      <div class="tip-card">
+        <h3>雨天調整</h3>
+        <p>5 月可能遇雨。海邊行程可替換成 DMM Kariyushi 水族館、博物館、新都心、PARCO CITY 或 Outlet。</p>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div>
+          <span id="modalBadge" class="badge"></span>
+          <h2 id="modalTitle"></h2>
+        </div>
+        <button class="close-btn" id="modalClose">×</button>
+      </div>
+      <div class="modal-info">
+        <div><b>建議日期：</b><span id="modalDay"></span></div>
+        <div><b>建議時間：</b><span id="modalTime"></span></div>
+        <div><b>預估長度：</b><span id="modalDuration"></span></div>
+        <div><b>類型：</b><span id="modalCategory"></span></div>
+      </div>
+      <div class="modal-note">
+        <h3>備註</h3>
+        <div id="modalNote"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      onSnapshot,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCFWZcAOqVJv0krjrS1i96HuKaBD4_oBW0",
+      authDomain: "okinawa-c5460.firebaseapp.com",
+      projectId: "okinawa-c5460",
+      storageBucket: "okinawa-c5460.firebasestorage.app",
+      messagingSenderId: "128110687700",
+      appId: "1:128110687700:web:316fa93db7afe64a799241",
+      measurementId: "G-P2Q15NY3PQ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const params = new URLSearchParams(window.location.search);
+
+    let tripId = params.get("trip") || "okinawa-2026";
+
+    if (!/^[a-zA-Z0-9_-]{4,40}$/.test(tripId)) {
+      tripId = "okinawa-2026";
+    }
+
+    const tripRef = doc(db, "trips", tripId);
+    const HOURS = Array.from({ length: 15 }, (_, i) => i + 8); // 08:00–22:00
+
+    const DAYS_ALL = [
+      { id: "2026-05-04", label: "5/4", title: "抵達＋那霸市區" },
+      { id: "2026-05-05", label: "5/5", title: "那霸文化／海邊" },
+      { id: "2026-05-06", label: "5/6", title: "美麗海套裝候選" },
+      { id: "2026-05-07", label: "5/7", title: "中部／美國村" },
+      { id: "2026-05-08", label: "5/8", title: "南部／回台" },
+    ];
+
+    const CATEGORIES = {
+      all: "全部",
+      city: "市區",
+      ocean: "海景",
+      culture: "文化",
+      shopping: "購物",
+      rainy: "雨天備案",
+      transit: "交通",
+    };
+
+    const CATEGORY_ICON = {
+      city: "📍",
+      ocean: "🌊",
+      culture: "🏯",
+      shopping: "🛍️",
+      rainy: "☔",
+      transit: "✈️",
+    };
+
+    const ATTRACTIONS = [
+      {
+        id: "airport-arrival",
+        title: "抵達那霸機場／飯店放行李",
+        duration: 2,
+        category: "transit",
+        suggestedDay: "5/4",
+        suggestedTime: "下午或傍晚",
+        note: "抵達日不要排太硬。建議住縣廳前、旭橋、美榮橋、牧志一帶，後續靠單軌和巴士比較方便。",
+      },
+      {
+        id: "kokusai",
+        title: "國際通＋牧志公設市場",
+        duration: 3,
+        category: "city",
+        suggestedDay: "5/4 或任一晚",
+        suggestedTime: "17:00–21:00",
+        note: "適合抵達日晚上熟悉那霸市區。可吃沖繩料理、逛伴手禮、安排屋台村或居酒屋。",
+      },
+      {
+        id: "shuri",
+        title: "首里城公園＋金城町石疊道",
+        duration: 3,
+        category: "culture",
+        suggestedDay: "5/5 或 5/8",
+        suggestedTime: "09:00–12:00",
+        note: "那霸文化線。可搭單軌到首里站後步行或短程計程車。天氣太熱時不要把步行路段排太滿。",
+      },
+      {
+        id: "naminoue",
+        title: "波上宮＋波之上海灘",
+        duration: 2,
+        category: "ocean",
+        suggestedDay: "5/5",
+        suggestedTime: "15:00–17:00",
+        note: "那霸市區內最容易抵達的海邊景點。適合接在首里城後面，作為下午輕量行程。",
+      },
+      {
+        id: "churaumi-tour",
+        title: "美麗海水族館北部套裝行程",
+        duration: 10,
+        category: "rainy",
+        suggestedDay: "5/6 或 5/7",
+        suggestedTime: "08:00–18:00",
+        note: "已知會安排一天。無租車最建議買套裝行程，通常會搭配古宇利島、萬座毛、名護鳳梨園或美國村。建議不要放在抵達日。",
+      },
+      {
+        id: "kouri",
+        title: "古宇利島／古宇利大橋",
+        duration: 2,
+        category: "ocean",
+        suggestedDay: "跟美麗海套裝同日",
+        suggestedTime: "套裝行程中",
+        note: "海景拍照點。若套裝有包含，優先選這種路線；自行前往不太適合無租車旅客。",
+      },
+      {
+        id: "manzamo",
+        title: "萬座毛",
+        duration: 1,
+        category: "ocean",
+        suggestedDay: "跟美麗海套裝同日",
+        suggestedTime: "套裝行程中",
+        note: "經典海岸景點，通常作為北部／中部套裝停靠點。天氣好時很值得，雨天則拍照效果會下降。",
+      },
+      {
+        id: "american-village",
+        title: "美國村＋Depot Island",
+        duration: 5,
+        category: "ocean",
+        suggestedDay: "5/7 或 5/8",
+        suggestedTime: "14:00–20:00",
+        note: "適合下午到晚上，逛街、海邊咖啡、夕陽、晚餐一次完成。不租車可搭巴士，回程太晚可用計程車補。",
+      },
+      {
+        id: "parco",
+        title: "浦添 PARCO CITY",
+        duration: 3,
+        category: "shopping",
+        suggestedDay: "5/7 可接美國村前",
+        suggestedTime: "11:00–14:00",
+        note: "大型商場，適合雨天或想購物。可接美國村形成中部一日。",
+      },
+      {
+        id: "senaga",
+        title: "瀨長島 Umikaji Terrace",
+        duration: 3,
+        category: "ocean",
+        suggestedDay: "5/8 回台前",
+        suggestedTime: "10:00–13:00",
+        note: "離機場較近，適合最後一天或南部輕量行程。看海、咖啡、拍照，但商店規模不大。",
+      },
+      {
+        id: "toyoki",
+        title: "iias Okinawa Toyosaki／Outlet Ashibinaa",
+        duration: 4,
+        category: "shopping",
+        suggestedDay: "5/8",
+        suggestedTime: "13:00–17:00",
+        note: "可接瀨長島，形成南部半日到一日。雨天也好用。",
+      },
+      {
+        id: "dmm-aquarium",
+        title: "DMM Kariyushi 水族館",
+        duration: 2,
+        category: "rainy",
+        suggestedDay: "雨天備案",
+        suggestedTime: "彈性",
+        note: "南部室內景點，適合遇到下雨時替換瀨長島或海邊行程。可和 iias Toyosaki 一起排。",
+      },
+      {
+        id: "museum",
+        title: "沖繩縣立博物館・美術館＋新都心",
+        duration: 3,
+        category: "rainy",
+        suggestedDay: "雨天備案／5/8",
+        suggestedTime: "14:00–17:00",
+        note: "那霸市內雨天備案。接新都心、DFS、晚餐很順。",
+      },
+      {
+        id: "airport-return",
+        title: "回台／那霸機場採買",
+        duration: 2,
+        category: "transit",
+        suggestedDay: "5/8",
+        suggestedTime: "依班機",
+        note: "若班機偏早，不建議安排瀨長島；若午後或晚上班機，可排瀨長島、國際通補買或機場採買。",
+      },
+    ];
+
+    const DEFAULT_EVENTS = [
+      { id: "e1", attractionId: "airport-arrival", day: "2026-05-04", hour: 15 },
+      { id: "e2", attractionId: "kokusai", day: "2026-05-04", hour: 18 },
+      { id: "e3", attractionId: "shuri", day: "2026-05-05", hour: 9 },
+      { id: "e4", attractionId: "naminoue", day: "2026-05-05", hour: 15 },
+      { id: "e5", attractionId: "churaumi-tour", day: "2026-05-06", hour: 8 },
+      { id: "e6", attractionId: "american-village", day: "2026-05-07", hour: 14 },
+      { id: "e7", attractionId: "senaga", day: "2026-05-08", hour: 10 },
+      { id: "e8", attractionId: "airport-return", day: "2026-05-08", hour: 15 },
+    ];
+
+    const STORAGE_KEY = "okinawa_itinerary_plain_html_v1";
+
+    let includeMay9 = false;
+    let activeFilter = "all";
+    let events = structuredClone(DEFAULT_EVENTS);
+
+    const plannerGrid = document.getElementById("plannerGrid");
+    const attractionGrid = document.getElementById("attractionGrid");
+    const filtersEl = document.getElementById("filters");
+    const resetBtn = document.getElementById("resetBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const importBtn = document.getElementById("importBtn");
+    const saveStatus = document.getElementById("saveStatus");
+
+    const modalBackdrop = document.getElementById("modalBackdrop");
+    const modalClose = document.getElementById("modalClose");
+    const modalBadge = document.getElementById("modalBadge");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalDay = document.getElementById("modalDay");
+    const modalTime = document.getElementById("modalTime");
+    const modalDuration = document.getElementById("modalDuration");
+    const modalCategory = document.getElementById("modalCategory");
+    const modalNote = document.getElementById("modalNote");
+
+    function getDays() {
+      return DAYS_ALL;
+    }
+
+    function getAttraction(id) {
+      return ATTRACTIONS.find(item => item.id === id);
+    }
+
+    let isApplyingRemote = false;
+
+    async function saveState() {
+          if (isApplyingRemote) return;
+
+          await setDoc(tripRef, {
+            includeMay9,
+            events,
+            updatedAt: serverTimestamp(),
+            updatedBy: "anonymous"
+          }, { merge: true });
+
+          saveStatus.textContent = `已同步到雲端 Trip ID：${tripId}`;
+
+          clearTimeout(saveState.timer);
+          saveState.timer = setTimeout(() => {
+            saveStatus.textContent = `目前共用行程：${tripId}`;
+          }, 1800);
+        }
+        async function initRemoteState() {
+      const snap = await getDoc(tripRef);
+
+      if (!snap.exists()) {
+        await setDoc(tripRef, {
+          includeMay9,
+          events,
+          updatedAt: serverTimestamp(),
+          updatedBy: "initial"
+        });
+      }
+
+      onSnapshot(tripRef, snapshot => {
+        if (!snapshot.exists()) return;
+
+        const data = snapshot.data();
+
+        isApplyingRemote = true;
+
+        includeMay9 = false;
+
+        if (Array.isArray(data.events)) {
+          const validDays = new Set(DAYS_ALL.map(day => day.id));
+          events = data.events.filter(event => validDays.has(event.day));
+        }
+
+        renderAll();
+
+        saveStatus.textContent = `目前共用行程：${tripId}`;
+
+        isApplyingRemote = false;
+      });
+    }
+
+    function makeBadge(category) {
+      return `<span class="badge ${category}">${CATEGORY_ICON[category] || "•"} ${CATEGORIES[category]}</span>`;
+    }
+
+    function renderFilters() {
+      filtersEl.innerHTML = "";
+      Object.entries(CATEGORIES).forEach(([key, label]) => {
+        const btn = document.createElement("button");
+        btn.className = `filter-btn ${activeFilter === key ? "active" : ""}`;
+        btn.textContent = label;
+        btn.addEventListener("click", () => {
+          activeFilter = key;
+          renderFilters();
+          renderAttractions();
+        });
+        filtersEl.appendChild(btn);
+      });
+    }
+
+    function renderPlanner() {
+      const days = getDays();
+      plannerGrid.style.gridTemplateColumns = `88px repeat(${days.length}, minmax(160px, 1fr))`;
+      plannerGrid.innerHTML = "";
+
+      const corner = document.createElement("div");
+      corner.className = "cell corner-cell";
+      corner.textContent = "Time";
+      plannerGrid.appendChild(corner);
+
+      days.forEach(day => {
+        const head = document.createElement("div");
+        head.className = "day-head";
+        head.innerHTML = `<div class="day-label">${day.label}</div><div class="day-title">${day.title}</div>`;
+        plannerGrid.appendChild(head);
+      });
+
+      HOURS.forEach(hour => {
+        const timeCell = document.createElement("div");
+        timeCell.className = "cell time-cell";
+        timeCell.textContent = `${String(hour).padStart(2, "0")}:00`;
+        plannerGrid.appendChild(timeCell);
+
+        days.forEach(day => {
+          const slot = document.createElement("div");
+          slot.className = "cell slot";
+          slot.dataset.day = day.id;
+          slot.dataset.hour = String(hour);
+
+          slot.addEventListener("dragover", e => {
+            e.preventDefault();
+            slot.classList.add("drop-hover");
+          });
+          slot.addEventListener("dragleave", () => slot.classList.remove("drop-hover"));
+          slot.addEventListener("drop", e => handleDrop(e, day.id, hour, slot));
+
+          const slotEvents = events.filter(event => event.day === day.id && event.hour === hour);
+          slotEvents.forEach(event => slot.appendChild(createEventCard(event)));
+          plannerGrid.appendChild(slot);
+        });
+      });
+    }
+
+    function createEventCard(event) {
+      const item = getAttraction(event.attractionId);
+      const card = document.createElement("div");
+      card.className = "event-card";
+      card.draggable = true;
+      card.dataset.eventId = event.id;
+
+      if (!item) {
+        card.textContent = "Unknown item";
+        return card;
+      }
+
+      card.innerHTML = `
+        <button class="remove-event" title="移除">×</button>
+        <div class="event-meta">
+          <span>${CATEGORY_ICON[item.category]} ${CATEGORIES[item.category]}</span>
+          <span>${item.duration} hr</span>
+        </div>
+        <div class="event-title">${item.title}</div>
+      `;
+
+      card.addEventListener("dragstart", e => {
+        e.dataTransfer.setData("text/plain", JSON.stringify({ type: "scheduled", eventId: event.id }));
+      });
+
+      card.addEventListener("dblclick", () => openModal(item));
+
+      const removeBtn = card.querySelector(".remove-event");
+      removeBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        events = events.filter(x => x.id !== event.id);
+        saveState();
+        renderPlanner();
+      });
+
+      return card;
+    }
+
+    function renderAttractions() {
+      attractionGrid.innerHTML = "";
+      const visible = activeFilter === "all"
+        ? ATTRACTIONS
+        : ATTRACTIONS.filter(item => item.category === activeFilter);
+
+      visible.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "attraction-card";
+        card.draggable = true;
+        card.innerHTML = `
+          <div class="card-top">
+            <div>${makeBadge(item.category)}</div>
+            <button class="info-btn" title="查看備註">i</button>
+          </div>
+          <div class="attraction-title">${item.title}</div>
+          <div class="attraction-detail">⏱ ${item.duration} hr　｜　${item.suggestedDay}</div>
+          <div class="note-preview">${item.note}</div>
+        `;
+
+        card.addEventListener("dragstart", e => {
+          e.dataTransfer.setData("text/plain", JSON.stringify({ type: "attraction", attractionId: item.id }));
+        });
+
+        card.querySelector(".info-btn").addEventListener("click", e => {
+          e.stopPropagation();
+          openModal(item);
+        });
+
+        card.addEventListener("dblclick", () => openModal(item));
+        attractionGrid.appendChild(card);
+      });
+    }
+
+    function handleDrop(e, day, hour, slot) {
+      e.preventDefault();
+      slot.classList.remove("drop-hover");
+      const raw = e.dataTransfer.getData("text/plain");
+      if (!raw) return;
+
+      try {
+        const data = JSON.parse(raw);
+        if (data.type === "attraction") {
+          events.push({
+            id: `e-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            attractionId: data.attractionId,
+            day,
+            hour,
+          });
+        }
+        if (data.type === "scheduled") {
+          events = events.map(event => event.id === data.eventId ? { ...event, day, hour } : event);
+        }
+        saveState();
+        renderPlanner();
+      } catch (err) {
+        console.warn("Drop parse failed", err);
+      }
+    }
+
+    function openModal(item) {
+      modalBadge.className = `badge ${item.category}`;
+      modalBadge.textContent = `${CATEGORY_ICON[item.category]} ${CATEGORIES[item.category]}`;
+      modalTitle.textContent = item.title;
+      modalDay.textContent = item.suggestedDay;
+      modalTime.textContent = item.suggestedTime;
+      modalDuration.textContent = `${item.duration} 小時`;
+      modalCategory.textContent = CATEGORIES[item.category];
+      modalNote.textContent = item.note;
+      modalBackdrop.classList.add("show");
+    }
+
+    function closeModal() {
+      modalBackdrop.classList.remove("show");
+    }
+
+    function exportJson() {
+      const data = JSON.stringify({ includeMay9, events }, null, 2);
+      const blob = new Blob([data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "okinawa-itinerary.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importJson() {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "application/json";
+      input.addEventListener("change", () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const data = JSON.parse(reader.result);
+            includeMay9 = false;
+            if (Array.isArray(data.events)) events = data.events;
+            saveState();
+            renderAll();
+          } catch (err) {
+            alert("匯入失敗：JSON 格式不正確。");
+          }
+        };
+        reader.readAsText(file);
+      });
+      input.click();
+    }
+
+    function renderAll() {
+      renderFilters();
+      renderPlanner();
+      renderAttractions();
+    }
+
+    resetBtn.addEventListener("click", () => {
+      const ok = confirm("確定要重置成初始行程嗎？目前拖曳安排會被覆蓋。");
+      if (!ok) return;
+      includeMay9 = false;
+      events = structuredClone(DEFAULT_EVENTS);
+      saveState();
+      renderAll();
+    });
+
+    exportBtn.addEventListener("click", exportJson);
+    importBtn.addEventListener("click", importJson);
+    modalClose.addEventListener("click", closeModal);
+    modalBackdrop.addEventListener("click", e => {
+      if (e.target === modalBackdrop) closeModal();
+    });
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") closeModal();
+    });
+
+    renderAll();
+    initRemoteState();
+  </script>
+</body>
+</html>
