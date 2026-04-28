@@ -354,6 +354,85 @@
 
     .filter-btn.active { background: var(--primary); color: white; }
 
+    .custom-attraction-panel {
+      margin: 16px 0 18px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: #f8fafc;
+      padding: 16px;
+    }
+
+    .custom-attraction-panel h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .custom-form {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr 0.6fr 1fr 1fr;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .custom-form .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .custom-form .field.full {
+      grid-column: 1 / -2;
+    }
+
+    .custom-form label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .custom-form input,
+    .custom-form select,
+    .custom-form textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+      padding: 9px 10px;
+      color: var(--text);
+      outline: none;
+    }
+
+    .custom-form textarea {
+      min-height: 42px;
+      resize: vertical;
+    }
+
+    .custom-hint {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .custom-mark {
+      margin-left: 6px;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .delete-attraction-btn {
+      margin-top: 10px;
+      border: 1px solid #fecaca;
+      background: #fff1f2;
+      color: #be123c;
+      border-radius: 12px;
+      padding: 7px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
     .attraction-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -595,6 +674,37 @@
         </div>
         <div class="filters" id="filters"></div>
       </div>
+      <div class="custom-attraction-panel">
+        <h3>新增景點／餐廳／備案</h3>
+        <div class="custom-form">
+          <div class="field">
+            <label for="newTitleInput">名稱 *</label>
+            <input id="newTitleInput" type="text" placeholder="例如：豬肉蛋飯糰、某某咖啡廳" />
+          </div>
+          <div class="field">
+            <label for="newCategoryInput">分類</label>
+            <select id="newCategoryInput"></select>
+          </div>
+          <div class="field">
+            <label for="newDurationInput">時長</label>
+            <input id="newDurationInput" type="number" min="1" max="17" value="2" />
+          </div>
+          <div class="field">
+            <label for="newSuggestedDayInput">建議日期</label>
+            <input id="newSuggestedDayInput" type="text" placeholder="例如：5/5 或雨天備案" />
+          </div>
+          <div class="field">
+            <label for="newSuggestedTimeInput">建議時間</label>
+            <input id="newSuggestedTimeInput" type="text" placeholder="例如：18:00–20:00" />
+          </div>
+          <div class="field full">
+            <label for="newNoteInput">備註</label>
+            <textarea id="newNoteInput" placeholder="交通方式、想吃的品項、訂位資訊、替代方案等"></textarea>
+          </div>
+          <button class="btn primary" id="addAttractionBtn">新增到選項池</button>
+        </div>
+        <div class="custom-hint">新增後會同步到 Firebase。同一個 trip 連結的旅伴重新整理或保持頁面開著時，也會看到新的選項。</div>
+      </div>
       <div class="attraction-grid" id="attractionGrid"></div>
     </section>
 
@@ -735,7 +845,7 @@
       food: "🍽️",
     };
 
-    const ATTRACTIONS = [
+    const DEFAULT_ATTRACTIONS = [
       {
         id: "flight-outbound",
         title: "去程航班：台灣 → 那霸",
@@ -918,6 +1028,22 @@
       },
     ];
 
+    let customAttractions = [];
+
+    function getAllAttractions() {
+      return [...DEFAULT_ATTRACTIONS, ...customAttractions];
+    }
+
+    function createAttractionId(title) {
+      const base = String(title || "custom")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9一-龥]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 30) || "custom";
+      return `custom-${Date.now().toString(36)}-${base}`;
+    }
+
     const DEFAULT_DAYS = makeDays("2026-05-04", "2026-05-08");
 
     const DEFAULT_PLANS = {
@@ -978,6 +1104,13 @@
     const startDateInput = document.getElementById("startDateInput");
     const endDateInput = document.getElementById("endDateInput");
     const saveStatus = document.getElementById("saveStatus");
+    const newTitleInput = document.getElementById("newTitleInput");
+    const newCategoryInput = document.getElementById("newCategoryInput");
+    const newDurationInput = document.getElementById("newDurationInput");
+    const newSuggestedDayInput = document.getElementById("newSuggestedDayInput");
+    const newSuggestedTimeInput = document.getElementById("newSuggestedTimeInput");
+    const newNoteInput = document.getElementById("newNoteInput");
+    const addAttractionBtn = document.getElementById("addAttractionBtn");
 
     const modalBackdrop = document.getElementById("modalBackdrop");
     const modalClose = document.getElementById("modalClose");
@@ -990,7 +1123,7 @@
     const modalNote = document.getElementById("modalNote");
 
     function getAttraction(id) {
-      return ATTRACTIONS.find(item => item.id === id);
+      return getAllAttractions().find(item => item.id === id);
     }
 
     function getActivePlan() {
@@ -1014,6 +1147,7 @@
         days,
         plans,
         activePlanId,
+        customAttractions,
         updatedAt: serverTimestamp(),
         updatedBy: "anonymous"
       }, { merge: true });
@@ -1033,6 +1167,7 @@
           days,
           plans,
           activePlanId,
+          customAttractions,
           updatedAt: serverTimestamp(),
           updatedBy: "initial"
         });
@@ -1045,6 +1180,7 @@
         isApplyingRemote = true;
 
         if (Array.isArray(data.days) && data.days.length > 0) days = data.days;
+        if (Array.isArray(data.customAttractions)) customAttractions = data.customAttractions;
         if (data.plans && typeof data.plans === "object") {
           plans = data.plans;
         } else if (Array.isArray(data.events)) {
@@ -1091,6 +1227,20 @@
         });
         planTabsEl.appendChild(btn);
       });
+    }
+
+    function renderCategorySelect() {
+      if (!newCategoryInput) return;
+      newCategoryInput.innerHTML = "";
+      Object.entries(CATEGORIES)
+        .filter(([key]) => key !== "all")
+        .forEach(([key, label]) => {
+          const option = document.createElement("option");
+          option.value = key;
+          option.textContent = label;
+          if (key === "food") option.selected = true;
+          newCategoryInput.appendChild(option);
+        });
     }
 
     function renderFilters() {
@@ -1242,8 +1392,8 @@
     function renderAttractions() {
       attractionGrid.innerHTML = "";
       const visible = activeFilter === "all"
-        ? ATTRACTIONS
-        : ATTRACTIONS.filter(item => item.category === activeFilter);
+        ? getAllAttractions()
+        : getAllAttractions().filter(item => item.category === activeFilter);
 
       visible.forEach(item => {
         const card = document.createElement("div");
@@ -1254,9 +1404,10 @@
             <div>${makeBadge(item.category)}</div>
             <button class="info-btn" title="查看備註">i</button>
           </div>
-          <div class="attraction-title">${item.title}</div>
+          <div class="attraction-title">${item.title}${item.isCustom ? '<span class="custom-mark">自訂</span>' : ''}</div>
           <div class="attraction-detail">⏱ ${item.duration} hr　｜　${item.suggestedDay}</div>
           <div class="note-preview">${item.note}</div>
+          ${item.isCustom ? '<button class="delete-attraction-btn" type="button">刪除此自訂選項</button>' : ''}
         `;
 
         card.addEventListener("dragstart", e => {
@@ -1267,6 +1418,24 @@
           e.stopPropagation();
           openModal(item);
         });
+
+        const deleteCustomBtn = card.querySelector(".delete-attraction-btn");
+        if (deleteCustomBtn) {
+          deleteCustomBtn.addEventListener("click", e => {
+            e.stopPropagation();
+            const used = Object.values(plans).some(plan => (plan.events || []).some(event => event.attractionId === item.id));
+            const msg = used
+              ? "這個自訂選項已經被排進行程。刪除後，相關行程卡也會一起移除。確定刪除？"
+              : "確定刪除此自訂選項？";
+            if (!confirm(msg)) return;
+            customAttractions = customAttractions.filter(x => x.id !== item.id);
+            Object.values(plans).forEach(plan => {
+              plan.events = (plan.events || []).filter(event => event.attractionId !== item.id);
+            });
+            renderAll();
+            saveState();
+          });
+        }
 
         card.addEventListener("dblclick", () => openModal(item));
         attractionGrid.appendChild(card);
@@ -1329,6 +1498,7 @@
     function renderAll() {
       renderPlanTabs();
       renderFilters();
+      renderCategorySelect();
       renderPlanner();
       renderAttractions();
     }
@@ -1392,6 +1562,35 @@
         plan.events = (plan.events || []).filter(event => validDays.has(event.day));
       });
 
+      renderAll();
+      saveState();
+    });
+
+    addAttractionBtn.addEventListener("click", () => {
+      const title = newTitleInput.value.trim();
+      if (!title) {
+        alert("請先輸入名稱。");
+        newTitleInput.focus();
+        return;
+      }
+      const duration = Math.min(Math.max(1, Math.round(Number(newDurationInput.value) || 1)), HOURS.length);
+      const item = {
+        id: createAttractionId(title),
+        title,
+        duration,
+        category: newCategoryInput.value || "city",
+        suggestedDay: newSuggestedDayInput.value.trim() || "自訂",
+        suggestedTime: newSuggestedTimeInput.value.trim() || "自訂",
+        note: newNoteInput.value.trim() || "使用者新增的自訂選項。",
+        isCustom: true,
+      };
+      customAttractions.push(item);
+      newTitleInput.value = "";
+      newDurationInput.value = "2";
+      newSuggestedDayInput.value = "";
+      newSuggestedTimeInput.value = "";
+      newNoteInput.value = "";
+      activeFilter = item.category;
       renderAll();
       saveState();
     });
