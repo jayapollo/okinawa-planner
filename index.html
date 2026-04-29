@@ -1383,6 +1383,25 @@
       });
     }
 
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function updateDayTitle(dayId) {
+      const target = days.find(day => day.id === dayId);
+      if (!target) return;
+      const nextTitle = prompt(`修改 ${target.label} 下方備註：`, target.title || "");
+      if (nextTitle === null) return;
+      target.title = nextTitle.trim() || "自訂日期";
+      renderAll();
+      saveState();
+    }
+
     function renderPlanner() {
       const colCount = days.length;
       plannerGrid.style.gridTemplateColumns = `88px repeat(${colCount}, minmax(170px, 1fr))`;
@@ -1402,7 +1421,17 @@
         head.className = "day-head";
         head.style.gridColumn = String(dayIndex + 2);
         head.style.gridRow = "1";
-        head.innerHTML = `<div class="day-label">${day.label}</div><div class="day-title">${day.title}</div>`;
+        head.innerHTML = `
+          <div class="day-label">${day.label}</div>
+          <div class="day-title-row">
+            <div class="day-title">${escapeHtml(day.title || "自訂日期")}</div>
+            <button class="edit-day-title-btn" type="button" title="修改日期備註">編輯</button>
+          </div>
+        `;
+        head.querySelector(".edit-day-title-btn").addEventListener("click", e => {
+          e.stopPropagation();
+          updateDayTitle(day.id);
+        });
         plannerGrid.appendChild(head);
       });
 
@@ -1538,20 +1567,25 @@
     function addAttractionToSchedule(attractionId, day, startMinute) {
       const item = getAttraction(attractionId);
       if (!item) return;
+      const targetDay = days.some(d => d.id === day) ? day : days[0]?.id;
+      if (!targetDay) return;
       const normalizedStart = normalizeMinute(startMinute);
       const event = {
         id: `e-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         attractionId,
-        day,
+        day: targetDay,
         startMinute: normalizedStart,
         hour: Math.floor(normalizedStart / 60),
         minute: normalizedStart % 60,
         durationMinutes: clampDurationMinutes({ startMinute: normalizedStart }, getItemDurationMinutes(item)),
       };
       event.duration = event.durationMinutes / 60;
-      getActiveEvents().push(event);
+      setActiveEvents([...(getActiveEvents() || []), event]);
       renderPlanner();
-      saveState();
+      saveState().catch(err => {
+        console.error("Quick add save failed", err);
+        saveStatus.textContent = "加入失敗：請檢查 Firebase Rules 或 Console 錯誤。";
+      });
     }
 
     function renderAttractions() {
@@ -1585,6 +1619,10 @@
         `;
 
         card.addEventListener("dragstart", e => {
+          if (e.target.closest && e.target.closest(".quick-add-controls")) {
+            e.preventDefault();
+            return;
+          }
           e.dataTransfer.setData("text/plain", JSON.stringify({ type: "attraction", attractionId: item.id }));
         });
 
@@ -1598,8 +1636,19 @@
           updateAttractionDescription(item.id);
         });
 
-        card.querySelector(".quick-add-btn").addEventListener("click", e => {
+        const quickControls = card.querySelector(".quick-add-controls");
+        quickControls.addEventListener("pointerdown", e => {
           e.stopPropagation();
+          card.draggable = false;
+        });
+        quickControls.addEventListener("mousedown", e => e.stopPropagation());
+        quickControls.addEventListener("mouseup", () => { card.draggable = true; });
+        quickControls.addEventListener("mouseleave", () => { card.draggable = true; });
+
+        card.querySelector(".quick-add-btn").addEventListener("click", e => {
+          e.preventDefault();
+          e.stopPropagation();
+          card.draggable = true;
           const day = card.querySelector(".quick-day-select").value;
           const startMinute = Number(card.querySelector(".quick-time-select").value);
           addAttractionToSchedule(item.id, day, startMinute);
