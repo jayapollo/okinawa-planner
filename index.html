@@ -1137,7 +1137,7 @@
       ];
     }
 
-    function updateAttractionDescription(attractionId) {
+    async function updateAttractionDescription(attractionId) {
       const item = getAttraction(attractionId);
       if (!item) return;
       const nextNote = prompt(`編輯「${item.title}」的地點描述：`, item.note || "");
@@ -1147,13 +1147,26 @@
         alert("描述不可為空。若要刪除內容，請改成簡短備註。");
         return;
       }
+
+      const prevCustomAttractions = structuredClone(customAttractions);
+      const prevAttractionOverrides = structuredClone(attractionOverrides);
+
       if (item.isCustom) {
         customAttractions = customAttractions.map(x => x.id === attractionId ? { ...x, note: trimmed } : x);
       } else {
         attractionOverrides[attractionId] = { ...(attractionOverrides[attractionId] || {}), note: trimmed };
       }
+
       renderAll();
-      saveState();
+      try {
+        await saveState();
+      } catch (err) {
+        console.error("Description save failed", err);
+        customAttractions = prevCustomAttractions;
+        attractionOverrides = prevAttractionOverrides;
+        renderAll();
+        saveStatus.textContent = "描述更新失敗：請檢查 Firebase Rules 或 Console 錯誤。";
+      }
     }
 
     function createAttractionId(title) {
@@ -1262,19 +1275,46 @@
       getActivePlan().events = nextEvents;
     }
 
-    async function saveState() {
-      if (isApplyingRemote) return;
+    function stripUndefined(value) {
+      if (Array.isArray(value)) {
+        return value
+          .map(item => stripUndefined(item))
+          .filter(item => item !== undefined);
+      }
 
-      // Use overwrite instead of merge so old schema fields such as events/includeMay9
-      // do not remain in the Firestore document and break security rules.
-      await setDoc(tripRef, {
+      if (value && typeof value === "object") {
+        const out = {};
+        Object.entries(value).forEach(([key, item]) => {
+          const cleaned = stripUndefined(item);
+          if (cleaned !== undefined) out[key] = cleaned;
+        });
+        return out;
+      }
+
+      if (value === undefined || typeof value === "function") return undefined;
+      return value;
+    }
+
+    function makeFirestorePayload(updatedBy = "anonymous") {
+      return stripUndefined({
         days,
         plans,
         activePlanId,
         customAttractions,
         attractionOverrides,
-        updatedAt: serverTimestamp(),
-        updatedBy: "anonymous"
+        updatedBy
+      });
+    }
+
+    async function saveState() {
+      if (isApplyingRemote) return;
+
+      // Use overwrite instead of merge so old schema fields such as events/includeMay9
+      // do not remain in the Firestore document and break security rules.
+      const payload = makeFirestorePayload("anonymous");
+      await setDoc(tripRef, {
+        ...payload,
+        updatedAt: serverTimestamp()
       });
 
       saveStatus.textContent = `已同步到雲端 Trip ID：${tripId}`;
@@ -1289,13 +1329,8 @@
 
       if (!snap.exists()) {
         await setDoc(tripRef, {
-          days,
-          plans,
-          activePlanId,
-          customAttractions,
-          attractionOverrides,
-          updatedAt: serverTimestamp(),
-          updatedBy: "initial"
+          ...makeFirestorePayload("initial"),
+          updatedAt: serverTimestamp()
         });
       }
 
@@ -1394,14 +1429,24 @@
         .replace(/'/g, "&#039;");
     }
 
-    function updateDayTitle(dayId) {
+    async function updateDayTitle(dayId) {
       const target = days.find(day => day.id === dayId);
       if (!target) return;
+      const previousTitle = target.title;
       const nextTitle = prompt(`修改 ${target.label} 下方備註：`, target.title || "");
       if (nextTitle === null) return;
+
       target.title = nextTitle.trim() || "自訂日期";
       renderAll();
-      saveState();
+      try {
+        await saveState();
+      } catch (err) {
+        console.error("Day title save failed", err);
+        const rollbackTarget = days.find(day => day.id === dayId);
+        if (rollbackTarget) rollbackTarget.title = previousTitle;
+        renderAll();
+        saveStatus.textContent = "日期備註更新失敗：請檢查 Firebase Rules 或 Console 錯誤。";
+      }
     }
 
     function renderPlanner() {
@@ -1430,7 +1475,11 @@
             <button class="edit-day-title-btn" type="button" title="修改日期備註">編輯</button>
           </div>
         `;
-        head.querySelector(".edit-day-title-btn").addEventListener("click", e => {
+        const editDayBtn = head.querySelector(".edit-day-title-btn");
+        editDayBtn.addEventListener("pointerdown", e => e.stopPropagation());
+        editDayBtn.addEventListener("mousedown", e => e.stopPropagation());
+        editDayBtn.addEventListener("click", e => {
+          e.preventDefault();
           e.stopPropagation();
           updateDayTitle(day.id);
         });
@@ -1633,10 +1682,28 @@
           openModal(item);
         });
 
-        card.querySelector(".edit-note-btn").addEventListener("click", e => {
+        const editNoteBtn = card.querySelector(".edit-note-btn");
+        editNoteBtn.addEventListener("pointerdown", e => {
           e.stopPropagation();
+          card.draggable = false;
+        });
+        editNoteBtn.addEventListener("mousedown", e => e.stopPropagation());
+        editNoteBtn.addEventListener("mouseup", () => { card.draggable = true; });
+        editNoteBtn.addEventListener("click", e => {
+          e.preventDefault();
+          e.stopPropagation();
+          card.draggable = true;
           updateAttractionDescription(item.id);
         });
+
+        const cardActionsRow = card.querySelector(".card-actions-row");
+        cardActionsRow.addEventListener("pointerdown", e => {
+          e.stopPropagation();
+          card.draggable = false;
+        });
+        cardActionsRow.addEventListener("mousedown", e => e.stopPropagation());
+        cardActionsRow.addEventListener("mouseup", () => { card.draggable = true; });
+        cardActionsRow.addEventListener("mouseleave", () => { card.draggable = true; });
 
         const quickControls = card.querySelector(".quick-add-controls");
         quickControls.addEventListener("pointerdown", e => {
@@ -1659,7 +1726,9 @@
         const deleteCustomBtn = card.querySelector(".delete-attraction-btn");
         if (deleteCustomBtn) {
           deleteCustomBtn.addEventListener("click", e => {
+            e.preventDefault();
             e.stopPropagation();
+            card.draggable = true;
             const used = Object.values(plans).some(plan => (plan.events || []).some(event => event.attractionId === item.id));
             const msg = used
               ? "這個自訂選項已經被排進行程。刪除後，相關行程卡也會一起移除。確定刪除？"
