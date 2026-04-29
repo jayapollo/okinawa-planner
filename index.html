@@ -17,7 +17,7 @@
       --sky: #e0f2fe;
       --sky-text: #0369a1;
       --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-      --row-height: 90px;
+      --slot-height: 8px;
     }
 
     * { box-sizing: border-box; }
@@ -170,7 +170,7 @@
       font-weight: 800;
     }
 
-    .field input {
+    .field input, .field select {
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 9px 10px;
@@ -195,8 +195,8 @@
     .cell {
       border-right: 1px solid var(--line);
       border-bottom: 1px solid var(--line);
-      min-height: var(--row-height);
-      padding: 8px;
+      min-height: var(--slot-height);
+      padding: 0;
       background: white;
     }
 
@@ -228,7 +228,10 @@
       display: flex;
       align-items: flex-start;
       justify-content: center;
-      padding-top: 14px;
+      padding-top: 0;
+      align-items: flex-start;
+      font-size: 10px;
+      line-height: 1;
     }
 
     .day-head {
@@ -254,7 +257,7 @@
 
     .scheduled-event {
       z-index: 20;
-      margin: 6px;
+      margin: 2px 6px;
       background: white;
       border: 1px solid rgba(226, 232, 240, 0.98);
       border-radius: 14px;
@@ -264,7 +267,7 @@
       user-select: none;
       position: relative;
       overflow: hidden;
-      min-height: 58px;
+      min-height: 42px;
     }
 
     .scheduled-event:active, .attraction-card:active { cursor: grabbing; }
@@ -419,6 +422,57 @@
       color: #64748b;
       font-size: 11px;
       font-weight: 800;
+    }
+
+
+
+    .slot.hour-line, .time-cell.hour-line {
+      border-top: 1px solid #cbd5e1;
+    }
+
+    .time-cell.minor {
+      color: transparent;
+    }
+
+    .quick-add-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 6px;
+      margin-top: 12px;
+      align-items: center;
+    }
+
+    .quick-add-controls select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 7px 8px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 12px;
+    }
+
+    .quick-add-btn, .edit-note-btn {
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      color: #334155;
+      border-radius: 10px;
+      padding: 7px 9px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .quick-add-btn:hover, .edit-note-btn:hover {
+      background: #e2e8f0;
+    }
+
+    .card-actions-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
     }
 
     .delete-attraction-btn {
@@ -626,7 +680,7 @@
           <div class="tag">📅 Okinawa Trip Planner</div>
           <h1>沖繩拖曳式行程表</h1>
           <p class="subtitle">
-            支援多人 Firebase 同步、多套行程排法、自訂日期、餐廳分類，以及可拉長／縮短的行程卡。下方景點卡拖曳到表格後，可用卡片底部把手調整時長。
+            支援多人 Firebase 同步、多套行程排法、自訂日期、餐廳分類，以及可拉長／縮短的行程卡。下方景點卡拖曳到表格後，可用卡片底部把手調整時長；也可直接在選項池選日期與時間後加入。
           </p>
           <div class="status" id="saveStatus">行程會同步到 Firebase Firestore。</div>
         </div>
@@ -687,7 +741,7 @@
           </div>
           <div class="field">
             <label for="newDurationInput">時長</label>
-            <input id="newDurationInput" type="number" min="1" max="17" value="2" />
+            <input id="newDurationInput" type="number" min="0.083" max="17" step="0.25" value="2" />
           </div>
           <div class="field">
             <label for="newSuggestedDayInput">建議日期</label>
@@ -711,7 +765,7 @@
     <section class="tips">
       <div class="tips-card">
         <h3>時間長度調整</h3>
-        <p>拖到表格後，拉卡片底部的灰色把手即可調整時長。每一格代表 1 小時。</p>
+        <p>拖到表格後，拉卡片底部的灰色把手即可調整時長。時間刻度為 5 分鐘；拖曳卡片底部把手可用 5 分鐘為單位調整時長。</p>
       </div>
       <div class="tips-card">
         <h3>多版本行程</h3>
@@ -775,8 +829,49 @@
     if (!/^[a-zA-Z0-9_-]{4,40}$/.test(tripId)) tripId = "okinawa-2026";
     const tripRef = doc(db, "trips", tripId);
 
-    const HOURS = Array.from({ length: 17 }, (_, i) => i + 7); // 07:00–23:00
-    const ROW_HEIGHT = 90;
+    const TIME_START_MIN = 7 * 60;
+    const TIME_END_MIN = 23 * 60;
+    const SLOT_MINUTES = 5;
+    const SLOT_HEIGHT = 8;
+    const TIME_SLOTS = Array.from(
+      { length: Math.floor((TIME_END_MIN - TIME_START_MIN) / SLOT_MINUTES) },
+      (_, i) => TIME_START_MIN + i * SLOT_MINUTES
+    );
+    const HOURS = Array.from({ length: 17 }, (_, i) => i + 7); // 保留給部分舊資料和表單上限參考
+
+    function normalizeMinute(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return TIME_START_MIN;
+      const rounded = Math.round(n / SLOT_MINUTES) * SLOT_MINUTES;
+      return Math.min(Math.max(rounded, TIME_START_MIN), TIME_END_MIN - SLOT_MINUTES);
+    }
+
+    function formatTime(minute) {
+      const h = Math.floor(minute / 60);
+      const m = minute % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+
+    function durationToLabel(minutes) {
+      if (minutes % 60 === 0) return `${minutes / 60} hr`;
+      return `${Math.floor(minutes / 60)} hr ${minutes % 60} min`;
+    }
+
+    function getItemDurationMinutes(item) {
+      return Math.max(SLOT_MINUTES, Math.round((Number(item?.duration) || 1) * 60 / SLOT_MINUTES) * SLOT_MINUTES);
+    }
+
+    function getEventStartMinute(event) {
+      if (Number.isFinite(Number(event.startMinute))) return normalizeMinute(Number(event.startMinute));
+      return normalizeMinute((Number(event.hour) || 0) * 60 + (Number(event.minute) || 0));
+    }
+
+    function getEventDurationMinutes(event, item) {
+      if (Number.isFinite(Number(event.durationMinutes))) {
+        return Math.max(SLOT_MINUTES, Math.round(Number(event.durationMinutes) / SLOT_MINUTES) * SLOT_MINUTES);
+      }
+      return getItemDurationMinutes({ duration: event.duration || item?.duration || 1 });
+    }
 
     function makeDays(start = "2026-05-04", end = "2026-05-08") {
       const out = [];
@@ -853,7 +948,7 @@
         category: "transit",
         suggestedDay: "5/4",
         suggestedTime: "13:15–13:50",
-        note: "去程飛機資訊：13:15–13:50。表格以小時為單位，所以建議放在 13:00。抵達後可接飯店放行李。",
+        note: "去程飛機資訊：13:15–13:50。表格已改為 5 分鐘刻度，可放在 13:15。抵達後可接飯店放行李。",
       },
       {
         id: "hotel-grandconsort",
@@ -871,7 +966,7 @@
         category: "transit",
         suggestedDay: "5/8",
         suggestedTime: "16:45–17:20",
-        note: "回程飛機資訊：16:45–17:20。表格以小時為單位，所以建議放在 16:00。建議 14:00–15:00 左右開始往機場移動或進入機場採買。",
+        note: "回程飛機資訊：16:45–17:20。表格已改為 5 分鐘刻度，可放在 16:45。建議 14:00–15:00 左右開始往機場移動或進入機場採買。",
       },
       {
         id: "airport-arrival",
@@ -1029,9 +1124,36 @@
     ];
 
     let customAttractions = [];
+    let attractionOverrides = {};
+
+    function applyAttractionOverride(item) {
+      return { ...item, ...(attractionOverrides[item.id] || {}) };
+    }
 
     function getAllAttractions() {
-      return [...DEFAULT_ATTRACTIONS, ...customAttractions];
+      return [
+        ...DEFAULT_ATTRACTIONS.map(applyAttractionOverride),
+        ...customAttractions.map(applyAttractionOverride)
+      ];
+    }
+
+    function updateAttractionDescription(attractionId) {
+      const item = getAttraction(attractionId);
+      if (!item) return;
+      const nextNote = prompt(`編輯「${item.title}」的地點描述：`, item.note || "");
+      if (nextNote === null) return;
+      const trimmed = nextNote.trim();
+      if (!trimmed) {
+        alert("描述不可為空。若要刪除內容，請改成簡短備註。");
+        return;
+      }
+      if (item.isCustom) {
+        customAttractions = customAttractions.map(x => x.id === attractionId ? { ...x, note: trimmed } : x);
+      } else {
+        attractionOverrides[attractionId] = { ...(attractionOverrides[attractionId] || {}), note: trimmed };
+      }
+      renderAll();
+      saveState();
     }
 
     function createAttractionId(title) {
@@ -1050,7 +1172,7 @@
       main: {
         name: "原本行程",
         events: [
-          { id: "e1", attractionId: "flight-outbound", day: "2026-05-04", hour: 13, duration: 1 },
+          { id: "e1", attractionId: "flight-outbound", day: "2026-05-04", hour: 13, minute: 15, startMinute: 13 * 60 + 15, durationMinutes: 35, duration: 35 / 60 },
           { id: "e2", attractionId: "airport-arrival", day: "2026-05-04", hour: 14, duration: 2 },
           { id: "e3", attractionId: "hotel-grandconsort", day: "2026-05-04", hour: 16, duration: 1 },
           { id: "e4", attractionId: "kokusai", day: "2026-05-04", hour: 18, duration: 3 },
@@ -1064,13 +1186,13 @@
           { id: "e12", attractionId: "american-village-dinner", day: "2026-05-07", hour: 19, duration: 2 },
           { id: "e13", attractionId: "senaga", day: "2026-05-08", hour: 10, duration: 3 },
           { id: "e14", attractionId: "airport-return", day: "2026-05-08", hour: 14, duration: 2 },
-          { id: "e15", attractionId: "flight-return", day: "2026-05-08", hour: 16, duration: 1 },
+          { id: "e15", attractionId: "flight-return", day: "2026-05-08", hour: 16, minute: 45, startMinute: 16 * 60 + 45, durationMinutes: 35, duration: 35 / 60 },
         ]
       },
       rainy: {
         name: "雨天備案",
         events: [
-          { id: "r1", attractionId: "flight-outbound", day: "2026-05-04", hour: 13, duration: 1 },
+          { id: "r1", attractionId: "flight-outbound", day: "2026-05-04", hour: 13, minute: 15, startMinute: 13 * 60 + 15, durationMinutes: 35, duration: 35 / 60 },
           { id: "r2", attractionId: "airport-arrival", day: "2026-05-04", hour: 14, duration: 2 },
           { id: "r3", attractionId: "hotel-grandconsort", day: "2026-05-04", hour: 16, duration: 1 },
           { id: "r4", attractionId: "kokusai", day: "2026-05-04", hour: 18, duration: 3 },
@@ -1081,7 +1203,7 @@
           { id: "r9", attractionId: "toyoki", day: "2026-05-07", hour: 13, duration: 4 },
           { id: "r10", attractionId: "breakfast-cafe", day: "2026-05-08", hour: 9, duration: 1 },
           { id: "r11", attractionId: "airport-return", day: "2026-05-08", hour: 14, duration: 2 },
-          { id: "r12", attractionId: "flight-return", day: "2026-05-08", hour: 16, duration: 1 },
+          { id: "r12", attractionId: "flight-return", day: "2026-05-08", hour: 16, minute: 45, startMinute: 16 * 60 + 45, durationMinutes: 35, duration: 35 / 60 },
         ]
       }
     };
@@ -1148,6 +1270,7 @@
         plans,
         activePlanId,
         customAttractions,
+        attractionOverrides,
         updatedAt: serverTimestamp(),
         updatedBy: "anonymous"
       }, { merge: true });
@@ -1168,6 +1291,7 @@
           plans,
           activePlanId,
           customAttractions,
+          attractionOverrides,
           updatedAt: serverTimestamp(),
           updatedBy: "initial"
         });
@@ -1181,6 +1305,7 @@
 
         if (Array.isArray(data.days) && data.days.length > 0) days = data.days;
         if (Array.isArray(data.customAttractions)) customAttractions = data.customAttractions;
+        if (data.attractionOverrides && typeof data.attractionOverrides === "object") attractionOverrides = data.attractionOverrides;
         if (data.plans && typeof data.plans === "object") {
           plans = data.plans;
         } else if (Array.isArray(data.events)) {
@@ -1261,7 +1386,7 @@
     function renderPlanner() {
       const colCount = days.length;
       plannerGrid.style.gridTemplateColumns = `88px repeat(${colCount}, minmax(170px, 1fr))`;
-      plannerGrid.style.gridTemplateRows = `72px repeat(${HOURS.length}, var(--row-height))`;
+      plannerGrid.style.gridTemplateRows = `72px repeat(${TIME_SLOTS.length}, var(--slot-height))`;
       plannerGrid.style.minWidth = `${88 + colCount * 170}px`;
       plannerGrid.innerHTML = "";
 
@@ -1281,29 +1406,30 @@
         plannerGrid.appendChild(head);
       });
 
-      HOURS.forEach((hour, hourIndex) => {
-        const row = hourIndex + 2;
+      TIME_SLOTS.forEach((minute, slotIndex) => {
+        const row = slotIndex + 2;
+        const isHour = minute % 60 === 0;
         const timeCell = document.createElement("div");
-        timeCell.className = "cell time-cell";
+        timeCell.className = `cell time-cell ${isHour ? "hour-line" : "minor"}`;
         timeCell.style.gridColumn = "1";
         timeCell.style.gridRow = String(row);
-        timeCell.textContent = `${String(hour).padStart(2, "0")}:00`;
+        timeCell.textContent = isHour ? formatTime(minute) : "";
         plannerGrid.appendChild(timeCell);
 
         days.forEach((day, dayIndex) => {
           const slot = document.createElement("div");
-          slot.className = "cell slot";
+          slot.className = `cell slot ${isHour ? "hour-line" : ""}`;
           slot.style.gridColumn = String(dayIndex + 2);
           slot.style.gridRow = String(row);
           slot.dataset.day = day.id;
-          slot.dataset.hour = String(hour);
+          slot.dataset.startMinute = String(minute);
 
           slot.addEventListener("dragover", e => {
             e.preventDefault();
             slot.classList.add("drop-hover");
           });
           slot.addEventListener("dragleave", () => slot.classList.remove("drop-hover"));
-          slot.addEventListener("drop", e => handleDrop(e, day.id, hour, slot));
+          slot.addEventListener("drop", e => handleDrop(e, day.id, minute, slot));
 
           plannerGrid.appendChild(slot);
         });
@@ -1318,28 +1444,37 @@
     function createScheduledEventCard(event) {
       const item = getAttraction(event.attractionId);
       const dayIndex = days.findIndex(day => day.id === event.day);
-      const hourIndex = HOURS.findIndex(hour => hour === Number(event.hour));
-      if (!item || dayIndex < 0 || hourIndex < 0) return null;
+      if (!item || dayIndex < 0) return null;
 
-      const duration = clampDuration(event, event.duration || item.duration || 1);
-      event.duration = duration;
+      const startMinute = getEventStartMinute(event);
+      const slotIndex = TIME_SLOTS.findIndex(minute => minute === startMinute);
+      if (slotIndex < 0) return null;
 
+      const durationMinutes = clampDurationMinutes(event, getEventDurationMinutes(event, item));
+      event.startMinute = startMinute;
+      event.hour = Math.floor(startMinute / 60);
+      event.minute = startMinute % 60;
+      event.durationMinutes = durationMinutes;
+      event.duration = durationMinutes / 60;
+
+      const span = Math.max(1, Math.round(durationMinutes / SLOT_MINUTES));
       const card = document.createElement("div");
       card.className = "scheduled-event";
       card.draggable = true;
       card.dataset.eventId = event.id;
       card.style.gridColumn = String(dayIndex + 2);
-      card.style.gridRow = `${hourIndex + 2} / span ${duration}`;
+      card.style.gridRow = `${slotIndex + 2} / span ${span}`;
 
+      const endMinute = Math.min(startMinute + durationMinutes, TIME_END_MIN);
       card.innerHTML = `
         <button class="remove-event" title="移除">×</button>
         <div class="event-meta">
           <span>${CATEGORY_ICON[item.category]} ${CATEGORIES[item.category]}</span>
-          <span>${duration} hr</span>
+          <span>${durationToLabel(durationMinutes)}</span>
         </div>
         <div class="event-title">${item.title}</div>
-        <div class="event-time">${String(event.hour).padStart(2, "0")}:00–${String(event.hour + duration).padStart(2, "0")}:00</div>
-        <div class="resize-handle" title="上下拖曳調整時長">━</div>
+        <div class="event-time">${formatTime(startMinute)}–${formatTime(endMinute)}</div>
+        <div class="resize-handle" title="上下拖曳調整時長，5 分鐘為一格">━</div>
       `;
 
       card.addEventListener("dragstart", e => {
@@ -1360,18 +1495,20 @@
       handle.addEventListener("mousedown", e => {
         e.preventDefault();
         e.stopPropagation();
-        startResize(e, event.id, event.duration);
+        startResize(e, event.id, durationMinutes);
       });
 
       return card;
     }
 
-    function clampDuration(event, duration) {
-      const max = Math.max(1, HOURS[HOURS.length - 1] + 1 - Number(event.hour));
-      return Math.min(Math.max(1, Math.round(duration)), max);
+    function clampDurationMinutes(event, durationMinutes) {
+      const startMinute = getEventStartMinute(event);
+      const max = Math.max(SLOT_MINUTES, TIME_END_MIN - startMinute);
+      const rounded = Math.round(Number(durationMinutes || SLOT_MINUTES) / SLOT_MINUTES) * SLOT_MINUTES;
+      return Math.min(Math.max(SLOT_MINUTES, rounded), max);
     }
 
-    function startResize(e, eventId, originalDuration) {
+    function startResize(e, eventId, originalDurationMinutes) {
       const startY = e.clientY;
       const events = getActiveEvents();
       const target = events.find(x => x.id === eventId);
@@ -1379,14 +1516,42 @@
 
       function onMouseUp(upEvent) {
         const delta = upEvent.clientY - startY;
-        const change = Math.round(delta / ROW_HEIGHT);
-        target.duration = clampDuration(target, Number(originalDuration) + change);
+        const changeMinutes = Math.round(delta / SLOT_HEIGHT) * SLOT_MINUTES;
+        target.durationMinutes = clampDurationMinutes(target, Number(originalDurationMinutes) + changeMinutes);
+        target.duration = target.durationMinutes / 60;
         document.removeEventListener("mouseup", onMouseUp);
         saveState();
         renderPlanner();
       }
 
       document.addEventListener("mouseup", onMouseUp);
+    }
+
+    function renderDayOptions(selectedDay = days[0]?.id) {
+      return days.map(day => `<option value="${day.id}" ${day.id === selectedDay ? "selected" : ""}>${day.label}</option>`).join("");
+    }
+
+    function renderTimeOptions(selectedMinute = TIME_START_MIN) {
+      return TIME_SLOTS.map(minute => `<option value="${minute}" ${minute === selectedMinute ? "selected" : ""}>${formatTime(minute)}</option>`).join("");
+    }
+
+    function addAttractionToSchedule(attractionId, day, startMinute) {
+      const item = getAttraction(attractionId);
+      if (!item) return;
+      const normalizedStart = normalizeMinute(startMinute);
+      const event = {
+        id: `e-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        attractionId,
+        day,
+        startMinute: normalizedStart,
+        hour: Math.floor(normalizedStart / 60),
+        minute: normalizedStart % 60,
+        durationMinutes: clampDurationMinutes({ startMinute: normalizedStart }, getItemDurationMinutes(item)),
+      };
+      event.duration = event.durationMinutes / 60;
+      getActiveEvents().push(event);
+      renderPlanner();
+      saveState();
     }
 
     function renderAttractions() {
@@ -1399,15 +1564,24 @@
         const card = document.createElement("div");
         card.className = "attraction-card";
         card.draggable = true;
+        const defaultMinute = TIME_START_MIN;
         card.innerHTML = `
           <div class="card-top">
             <div>${makeBadge(item.category)}</div>
             <button class="info-btn" title="查看備註">i</button>
           </div>
           <div class="attraction-title">${item.title}${item.isCustom ? '<span class="custom-mark">自訂</span>' : ''}</div>
-          <div class="attraction-detail">⏱ ${item.duration} hr　｜　${item.suggestedDay}</div>
+          <div class="attraction-detail">⏱ ${durationToLabel(getItemDurationMinutes(item))}　｜　${item.suggestedDay}</div>
           <div class="note-preview">${item.note}</div>
-          ${item.isCustom ? '<button class="delete-attraction-btn" type="button">刪除此自訂選項</button>' : ''}
+          <div class="quick-add-controls">
+            <select class="quick-day-select" title="選擇加入日期">${renderDayOptions()}</select>
+            <select class="quick-time-select" title="選擇加入時間">${renderTimeOptions(defaultMinute)}</select>
+            <button class="quick-add-btn" type="button">加入</button>
+          </div>
+          <div class="card-actions-row">
+            <button class="edit-note-btn" type="button">編輯描述</button>
+            ${item.isCustom ? '<button class="delete-attraction-btn" type="button">刪除此自訂選項</button>' : ''}
+          </div>
         `;
 
         card.addEventListener("dragstart", e => {
@@ -1417,6 +1591,18 @@
         card.querySelector(".info-btn").addEventListener("click", e => {
           e.stopPropagation();
           openModal(item);
+        });
+
+        card.querySelector(".edit-note-btn").addEventListener("click", e => {
+          e.stopPropagation();
+          updateAttractionDescription(item.id);
+        });
+
+        card.querySelector(".quick-add-btn").addEventListener("click", e => {
+          e.stopPropagation();
+          const day = card.querySelector(".quick-day-select").value;
+          const startMinute = Number(card.querySelector(".quick-time-select").value);
+          addAttractionToSchedule(item.id, day, startMinute);
         });
 
         const deleteCustomBtn = card.querySelector(".delete-attraction-btn");
@@ -1429,6 +1615,7 @@
               : "確定刪除此自訂選項？";
             if (!confirm(msg)) return;
             customAttractions = customAttractions.filter(x => x.id !== item.id);
+            delete attractionOverrides[item.id];
             Object.values(plans).forEach(plan => {
               plan.events = (plan.events || []).filter(event => event.attractionId !== item.id);
             });
@@ -1442,7 +1629,7 @@
       });
     }
 
-    function handleDrop(e, day, hour, slot) {
+    function handleDrop(e, day, startMinute, slot) {
       e.preventDefault();
       slot.classList.remove("drop-hover");
       const raw = e.dataTransfer.getData("text/plain");
@@ -1451,15 +1638,20 @@
       try {
         const data = JSON.parse(raw);
         const currentEvents = getActiveEvents();
+        const normalizedStart = normalizeMinute(startMinute);
 
         if (data.type === "attraction") {
           const item = getAttraction(data.attractionId);
+          const durationMinutes = clampDurationMinutes({ startMinute: normalizedStart }, getItemDurationMinutes(item));
           currentEvents.push({
             id: `e-${Date.now()}-${Math.random().toString(16).slice(2)}`,
             attractionId: data.attractionId,
             day,
-            hour,
-            duration: clampDuration({ hour }, item?.duration || 1),
+            startMinute: normalizedStart,
+            hour: Math.floor(normalizedStart / 60),
+            minute: normalizedStart % 60,
+            durationMinutes,
+            duration: durationMinutes / 60,
           });
         }
 
@@ -1467,8 +1659,11 @@
           const target = currentEvents.find(event => event.id === data.eventId);
           if (target) {
             target.day = day;
-            target.hour = hour;
-            target.duration = clampDuration(target, target.duration || getAttraction(target.attractionId)?.duration || 1);
+            target.startMinute = normalizedStart;
+            target.hour = Math.floor(normalizedStart / 60);
+            target.minute = normalizedStart % 60;
+            target.durationMinutes = clampDurationMinutes(target, getEventDurationMinutes(target, getAttraction(target.attractionId)));
+            target.duration = target.durationMinutes / 60;
           }
         }
 
@@ -1485,7 +1680,7 @@
       modalTitle.textContent = item.title;
       modalDay.textContent = item.suggestedDay;
       modalTime.textContent = item.suggestedTime;
-      modalDuration.textContent = `${item.duration} 小時`;
+      modalDuration.textContent = durationToLabel(getItemDurationMinutes(item));
       modalCategory.textContent = CATEGORIES[item.category];
       modalNote.textContent = item.note;
       modalBackdrop.classList.add("show");
@@ -1573,7 +1768,7 @@
         newTitleInput.focus();
         return;
       }
-      const duration = Math.min(Math.max(1, Math.round(Number(newDurationInput.value) || 1)), HOURS.length);
+      const duration = Math.min(Math.max(0.083, Number(newDurationInput.value) || 1), HOURS.length);
       const item = {
         id: createAttractionId(title),
         title,
