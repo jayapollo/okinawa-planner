@@ -1265,6 +1265,8 @@
     async function saveState() {
       if (isApplyingRemote) return;
 
+      // Use overwrite instead of merge so old schema fields such as events/includeMay9
+      // do not remain in the Firestore document and break security rules.
       await setDoc(tripRef, {
         days,
         plans,
@@ -1273,7 +1275,7 @@
         attractionOverrides,
         updatedAt: serverTimestamp(),
         updatedBy: "anonymous"
-      }, { merge: true });
+      });
 
       saveStatus.textContent = `已同步到雲端 Trip ID：${tripId}`;
       clearTimeout(saveState.timer);
