@@ -485,6 +485,27 @@
       outline: none;
     }
 
+
+
+    .duration-pair {
+      display: grid;
+      grid-template-columns: minmax(64px, 1fr) auto minmax(76px, 1fr) auto;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .duration-pair input,
+    .duration-pair select {
+      min-width: 0;
+    }
+
+    .duration-unit {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
     .custom-form textarea {
       min-height: 42px;
       resize: vertical;
@@ -837,9 +858,27 @@
             <label for="newCategoryInput">分類</label>
             <select id="newCategoryInput"></select>
           </div>
-          <div class="field">
-            <label for="newDurationInput">時長</label>
-            <input id="newDurationInput" type="number" min="0.083" max="17" step="0.25" value="2" />
+          <div class="field duration-field">
+            <label>時長</label>
+            <div class="duration-pair">
+              <input id="newDurationHourInput" type="number" min="0" max="16" step="1" value="2" aria-label="時長小時" />
+              <span class="duration-unit">hr</span>
+              <select id="newDurationMinuteInput" aria-label="時長分鐘">
+                <option value="0">00</option>
+                <option value="5">05</option>
+                <option value="10">10</option>
+                <option value="15">15</option>
+                <option value="20">20</option>
+                <option value="25">25</option>
+                <option value="30">30</option>
+                <option value="35">35</option>
+                <option value="40">40</option>
+                <option value="45">45</option>
+                <option value="50">50</option>
+                <option value="55">55</option>
+              </select>
+              <span class="duration-unit">min</span>
+            </div>
           </div>
           <div class="direct-add-row">
             <label class="checkbox-field" for="addDirectlyCheckbox">
@@ -861,7 +900,7 @@
           </div>
           <button class="btn primary" id="addAttractionBtn">新增到選項池</button>
         </div>
-        <div class="custom-hint">「建議日期／建議時間」已改成直接加入行程表：勾選後可指定日期和時間，省去再拖曳一次。新增分類、選項與行程都會同步到 Firebase。</div>
+        <div class="custom-hint">時長可用小時＋分鐘設定，例如 1 hr 15 min。勾選「新增後直接加入行程表」後可指定日期和時間，省去再拖曳一次。新增分類、選項與行程都會同步到 Firebase。</div>
       </div>
       <div class="attraction-grid" id="attractionGrid"></div>
     </section>
@@ -961,7 +1000,17 @@
       return `${Math.floor(minutes / 60)} hr ${minutes % 60} min`;
     }
 
+    function readNewDurationMinutes() {
+      const hours = Math.max(0, Math.min(16, Math.floor(Number(newDurationHourInput.value) || 0)));
+      const minutes = Math.max(0, Math.min(55, Math.round((Number(newDurationMinuteInput.value) || 0) / SLOT_MINUTES) * SLOT_MINUTES));
+      const total = hours * 60 + minutes;
+      return Math.max(SLOT_MINUTES, Math.min(TIME_END_MIN - TIME_START_MIN, total));
+    }
+
     function getItemDurationMinutes(item) {
+      if (Number.isFinite(Number(item?.durationMinutes))) {
+        return Math.max(SLOT_MINUTES, Math.round(Number(item.durationMinutes) / SLOT_MINUTES) * SLOT_MINUTES);
+      }
       return Math.max(SLOT_MINUTES, Math.round((Number(item?.duration) || 1) * 60 / SLOT_MINUTES) * SLOT_MINUTES);
     }
 
@@ -1363,7 +1412,8 @@
     const customCategoryList = document.getElementById("customCategoryList");
     const newTitleInput = document.getElementById("newTitleInput");
     const newCategoryInput = document.getElementById("newCategoryInput");
-    const newDurationInput = document.getElementById("newDurationInput");
+    const newDurationHourInput = document.getElementById("newDurationHourInput");
+    const newDurationMinuteInput = document.getElementById("newDurationMinuteInput");
     const addDirectlyCheckbox = document.getElementById("addDirectlyCheckbox");
     const newScheduleDaySelect = document.getElementById("newScheduleDaySelect");
     const newScheduleTimeSelect = document.getElementById("newScheduleTimeSelect");
@@ -2113,11 +2163,13 @@
         newTitleInput.focus();
         return;
       }
-      const duration = Math.min(Math.max(0.083, Number(newDurationInput.value) || 1), HOURS.length);
+      const durationMinutes = readNewDurationMinutes();
+      const duration = durationMinutes / 60;
       const item = {
         id: createAttractionId(title),
         title,
         duration,
+        durationMinutes,
         category: newCategoryInput.value || "city",
         suggestedDay: "可由選項池直接加入",
         suggestedTime: "請在卡片上選擇日期與時間",
@@ -2144,7 +2196,8 @@
       }
 
       newTitleInput.value = "";
-      newDurationInput.value = "2";
+      newDurationHourInput.value = "2";
+      newDurationMinuteInput.value = "0";
       newNoteInput.value = "";
       addDirectlyCheckbox.checked = false;
       activeFilter = item.category;
