@@ -17,7 +17,7 @@
       --sky: #e0f2fe;
       --sky-text: #0369a1;
       --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-      --slot-height: 8px;
+      --slot-height: 8px; /* 5 分鐘仍是一格，但視覺上只顯示每小時主線 */
     }
 
     * { box-sizing: border-box; }
@@ -194,7 +194,7 @@
 
     .cell {
       border-right: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
+      border-bottom: 0;
       min-height: var(--slot-height);
       padding: 0;
       background: white;
@@ -224,14 +224,19 @@
       left: 0;
       z-index: 9;
       color: var(--muted);
-      font-size: 13px;
+      font-size: 14px;
+      line-height: 1;
       display: flex;
       align-items: flex-start;
       justify-content: center;
-      padding-top: 0;
-      align-items: flex-start;
-      font-size: 10px;
-      line-height: 1;
+      padding-top: 8px;
+      background: #f8fafc;
+    }
+
+    .time-cell.hour-label {
+      border-top: 1px solid #cbd5e1;
+      font-weight: 900;
+      letter-spacing: 0.02em;
     }
 
     .day-head {
@@ -501,12 +506,16 @@
 
 
 
-    .slot.hour-line, .time-cell.hour-line {
+    .slot.hour-line {
       border-top: 1px solid #cbd5e1;
     }
 
+    .slot {
+      border-bottom: 0;
+    }
+
     .time-cell.minor {
-      color: transparent;
+      display: none;
     }
 
     .quick-add-controls {
@@ -1690,15 +1699,19 @@
         plannerGrid.appendChild(head);
       });
 
+      for (let minute = TIME_START_MIN; minute < TIME_END_MIN; minute += 60) {
+        const slotIndex = Math.floor((minute - TIME_START_MIN) / SLOT_MINUTES);
+        const timeCell = document.createElement("div");
+        timeCell.className = "cell time-cell hour-label";
+        timeCell.style.gridColumn = "1";
+        timeCell.style.gridRow = `${slotIndex + 2} / span ${60 / SLOT_MINUTES}`;
+        timeCell.textContent = formatTime(minute);
+        plannerGrid.appendChild(timeCell);
+      }
+
       TIME_SLOTS.forEach((minute, slotIndex) => {
         const row = slotIndex + 2;
         const isHour = minute % 60 === 0;
-        const timeCell = document.createElement("div");
-        timeCell.className = `cell time-cell ${isHour ? "hour-line" : "minor"}`;
-        timeCell.style.gridColumn = "1";
-        timeCell.style.gridRow = String(row);
-        timeCell.textContent = isHour ? formatTime(minute) : "";
-        plannerGrid.appendChild(timeCell);
 
         days.forEach((day, dayIndex) => {
           const slot = document.createElement("div");
