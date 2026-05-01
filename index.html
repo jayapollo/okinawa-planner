@@ -377,6 +377,79 @@
       align-items: end;
     }
 
+    .category-manager {
+      display: grid;
+      grid-template-columns: 1fr 110px auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .category-manager .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .direct-add-row {
+      display: grid;
+      grid-template-columns: auto 1fr 1fr;
+      gap: 10px;
+      align-items: end;
+      grid-column: 1 / -2;
+      padding: 10px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 14px;
+      background: white;
+    }
+
+    .checkbox-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .checkbox-field input { width: auto; }
+
+    .custom-category-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 8px 0 10px;
+    }
+
+    .custom-category-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: white;
+      padding: 6px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #334155;
+    }
+
+    .custom-category-pill button {
+      border: 0;
+      background: #fee2e2;
+      color: #b91c1c;
+      border-radius: 999px;
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+      line-height: 18px;
+      padding: 0;
+      font-weight: 900;
+    }
+
     .custom-form .field {
       display: flex;
       flex-direction: column;
@@ -395,7 +468,9 @@
 
     .custom-form input,
     .custom-form select,
-    .custom-form textarea {
+    .custom-form textarea,
+    .category-manager input,
+    .category-manager select {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -729,6 +804,20 @@
         <div class="filters" id="filters"></div>
       </div>
       <div class="custom-attraction-panel">
+        <h3>分類與選項管理</h3>
+        <div class="category-manager">
+          <div class="field">
+            <label for="newCategoryNameInput">新增分類名稱</label>
+            <input id="newCategoryNameInput" type="text" placeholder="例如：咖啡廳、購物備案、夜景" />
+          </div>
+          <div class="field">
+            <label for="newCategoryIconInput">分類圖示</label>
+            <input id="newCategoryIconInput" type="text" maxlength="4" placeholder="☕" />
+          </div>
+          <button class="btn" id="addCategoryBtn">新增分類</button>
+        </div>
+        <div class="custom-category-list" id="customCategoryList"></div>
+
         <h3>新增景點／餐廳／備案</h3>
         <div class="custom-form">
           <div class="field">
@@ -743,21 +832,27 @@
             <label for="newDurationInput">時長</label>
             <input id="newDurationInput" type="number" min="0.083" max="17" step="0.25" value="2" />
           </div>
-          <div class="field">
-            <label for="newSuggestedDayInput">建議日期</label>
-            <input id="newSuggestedDayInput" type="text" placeholder="例如：5/5 或雨天備案" />
-          </div>
-          <div class="field">
-            <label for="newSuggestedTimeInput">建議時間</label>
-            <input id="newSuggestedTimeInput" type="text" placeholder="例如：18:00–20:00" />
+          <div class="direct-add-row">
+            <label class="checkbox-field" for="addDirectlyCheckbox">
+              <input id="addDirectlyCheckbox" type="checkbox" />
+              新增後直接加入行程表
+            </label>
+            <div class="field">
+              <label for="newScheduleDaySelect">加入日期</label>
+              <select id="newScheduleDaySelect"></select>
+            </div>
+            <div class="field">
+              <label for="newScheduleTimeSelect">加入時間</label>
+              <select id="newScheduleTimeSelect"></select>
+            </div>
           </div>
           <div class="field full">
-            <label for="newNoteInput">備註</label>
+            <label for="newNoteInput">備註／地點描述</label>
             <textarea id="newNoteInput" placeholder="交通方式、想吃的品項、訂位資訊、替代方案等"></textarea>
           </div>
           <button class="btn primary" id="addAttractionBtn">新增到選項池</button>
         </div>
-        <div class="custom-hint">新增後會同步到 Firebase。同一個 trip 連結的旅伴重新整理或保持頁面開著時，也會看到新的選項。</div>
+        <div class="custom-hint">「建議日期／建議時間」已改成直接加入行程表：勾選後可指定日期和時間，省去再拖曳一次。新增分類、選項與行程都會同步到 Firebase。</div>
       </div>
       <div class="attraction-grid" id="attractionGrid"></div>
     </section>
@@ -917,7 +1012,7 @@
       return map[id] || "自訂日期";
     }
 
-    const CATEGORIES = {
+    const BASE_CATEGORIES = {
       all: "全部",
       city: "市區",
       ocean: "海景",
@@ -929,7 +1024,7 @@
       food: "餐廳",
     };
 
-    const CATEGORY_ICON = {
+    const BASE_CATEGORY_ICON = {
       city: "📍",
       ocean: "🌊",
       culture: "🏯",
@@ -939,6 +1034,19 @@
       hotel: "🏨",
       food: "🍽️",
     };
+
+    let CATEGORIES = { ...BASE_CATEGORIES };
+    let CATEGORY_ICON = { ...BASE_CATEGORY_ICON };
+
+    function refreshCategoryMap() {
+      CATEGORIES = { ...BASE_CATEGORIES };
+      CATEGORY_ICON = { ...BASE_CATEGORY_ICON };
+      customCategories.forEach(cat => {
+        if (!cat || !cat.id || !cat.label) return;
+        CATEGORIES[cat.id] = cat.label;
+        CATEGORY_ICON[cat.id] = cat.icon || "🏷️";
+      });
+    }
 
     const DEFAULT_ATTRACTIONS = [
       {
@@ -1123,6 +1231,7 @@
       },
     ];
 
+    let customCategories = [];
     let customAttractions = [];
     let attractionOverrides = {};
 
@@ -1239,11 +1348,16 @@
     const startDateInput = document.getElementById("startDateInput");
     const endDateInput = document.getElementById("endDateInput");
     const saveStatus = document.getElementById("saveStatus");
+    const newCategoryNameInput = document.getElementById("newCategoryNameInput");
+    const newCategoryIconInput = document.getElementById("newCategoryIconInput");
+    const addCategoryBtn = document.getElementById("addCategoryBtn");
+    const customCategoryList = document.getElementById("customCategoryList");
     const newTitleInput = document.getElementById("newTitleInput");
     const newCategoryInput = document.getElementById("newCategoryInput");
     const newDurationInput = document.getElementById("newDurationInput");
-    const newSuggestedDayInput = document.getElementById("newSuggestedDayInput");
-    const newSuggestedTimeInput = document.getElementById("newSuggestedTimeInput");
+    const addDirectlyCheckbox = document.getElementById("addDirectlyCheckbox");
+    const newScheduleDaySelect = document.getElementById("newScheduleDaySelect");
+    const newScheduleTimeSelect = document.getElementById("newScheduleTimeSelect");
     const newNoteInput = document.getElementById("newNoteInput");
     const addAttractionBtn = document.getElementById("addAttractionBtn");
 
@@ -1300,6 +1414,7 @@
         days,
         plans,
         activePlanId,
+        customCategories,
         customAttractions,
         attractionOverrides,
         updatedBy
@@ -1341,6 +1456,8 @@
         isApplyingRemote = true;
 
         if (Array.isArray(data.days) && data.days.length > 0) days = data.days;
+        if (Array.isArray(data.customCategories)) customCategories = data.customCategories;
+        refreshCategoryMap();
         if (Array.isArray(data.customAttractions)) customAttractions = data.customAttractions;
         if (data.attractionOverrides && typeof data.attractionOverrides === "object") attractionOverrides = data.attractionOverrides;
         if (data.plans && typeof data.plans === "object") {
@@ -1393,16 +1510,103 @@
 
     function renderCategorySelect() {
       if (!newCategoryInput) return;
+      const current = newCategoryInput.value || "food";
       newCategoryInput.innerHTML = "";
       Object.entries(CATEGORIES)
         .filter(([key]) => key !== "all")
         .forEach(([key, label]) => {
           const option = document.createElement("option");
           option.value = key;
-          option.textContent = label;
-          if (key === "food") option.selected = true;
+          option.textContent = `${CATEGORY_ICON[key] || "🏷️"} ${label}`;
+          if (key === current || (!current && key === "food")) option.selected = true;
           newCategoryInput.appendChild(option);
         });
+    }
+
+    function renderScheduleSelects() {
+      if (!newScheduleDaySelect || !newScheduleTimeSelect) return;
+      const currentDay = newScheduleDaySelect.value || days[0]?.id;
+      const currentTime = Number(newScheduleTimeSelect.value || TIME_START_MIN);
+      newScheduleDaySelect.innerHTML = renderDayOptions(currentDay);
+      newScheduleTimeSelect.innerHTML = renderTimeOptions(currentTime);
+    }
+
+    function renderCustomCategoryList() {
+      if (!customCategoryList) return;
+      customCategoryList.innerHTML = "";
+      if (customCategories.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "custom-hint";
+        empty.textContent = "目前沒有自訂分類。";
+        customCategoryList.appendChild(empty);
+        return;
+      }
+      customCategories.forEach(cat => {
+        const pill = document.createElement("span");
+        pill.className = "custom-category-pill";
+        pill.innerHTML = `<span>${escapeHtml(cat.icon || "🏷️")} ${escapeHtml(cat.label)}</span><button type="button" title="刪除此分類">×</button>`;
+        const btn = pill.querySelector("button");
+        btn.addEventListener("click", () => deleteCustomCategory(cat.id));
+        customCategoryList.appendChild(pill);
+      });
+    }
+
+    function createCategoryId(label) {
+      return `cat-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 6)}`;
+    }
+
+    async function addCustomCategory() {
+      const label = newCategoryNameInput.value.trim();
+      if (!label) {
+        alert("請輸入分類名稱。");
+        newCategoryNameInput.focus();
+        return;
+      }
+      const duplicated = Object.values(CATEGORIES).some(x => String(x).trim() === label);
+      if (duplicated) {
+        alert("此分類名稱已存在。");
+        return;
+      }
+      const icon = (newCategoryIconInput.value.trim() || "🏷️").slice(0, 4);
+      const cat = { id: createCategoryId(label), label, icon, isCustom: true };
+      customCategories.push(cat);
+      refreshCategoryMap();
+      newCategoryNameInput.value = "";
+      newCategoryIconInput.value = "";
+      activeFilter = cat.id;
+      renderAll();
+      try {
+        await saveState();
+      } catch (err) {
+        console.error("Category save failed", err);
+        customCategories = customCategories.filter(x => x.id !== cat.id);
+        refreshCategoryMap();
+        renderAll();
+        saveStatus.textContent = "分類新增失敗：請檢查 Firebase Rules 是否包含 customCategories。";
+      }
+    }
+
+    async function deleteCustomCategory(categoryId) {
+      const used = getAllAttractions().some(item => item.category === categoryId);
+      if (used) {
+        alert("此分類已被選項使用。請先把相關景點／餐廳改到其他分類或刪除該選項。避免行程分類遺失，暫不直接刪除。");
+        return;
+      }
+      if (!confirm("確定刪除此自訂分類？")) return;
+      const prev = structuredClone(customCategories);
+      customCategories = customCategories.filter(cat => cat.id !== categoryId);
+      if (activeFilter === categoryId) activeFilter = "all";
+      refreshCategoryMap();
+      renderAll();
+      try {
+        await saveState();
+      } catch (err) {
+        console.error("Category delete failed", err);
+        customCategories = prev;
+        refreshCategoryMap();
+        renderAll();
+        saveStatus.textContent = "分類刪除失敗：請檢查 Firebase Rules。";
+      }
     }
 
     function renderFilters() {
@@ -1811,9 +2015,12 @@
     }
 
     function renderAll() {
+      refreshCategoryMap();
       renderPlanTabs();
       renderFilters();
       renderCategorySelect();
+      renderScheduleSelects();
+      renderCustomCategoryList();
       renderPlanner();
       renderAttractions();
     }
@@ -1881,7 +2088,12 @@
       saveState();
     });
 
-    addAttractionBtn.addEventListener("click", () => {
+    addCategoryBtn.addEventListener("click", addCustomCategory);
+    newCategoryNameInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") addCustomCategory();
+    });
+
+    addAttractionBtn.addEventListener("click", async () => {
       const title = newTitleInput.value.trim();
       if (!title) {
         alert("請先輸入名稱。");
@@ -1894,20 +2106,47 @@
         title,
         duration,
         category: newCategoryInput.value || "city",
-        suggestedDay: newSuggestedDayInput.value.trim() || "自訂",
-        suggestedTime: newSuggestedTimeInput.value.trim() || "自訂",
+        suggestedDay: "可由選項池直接加入",
+        suggestedTime: "請在卡片上選擇日期與時間",
         note: newNoteInput.value.trim() || "使用者新增的自訂選項。",
         isCustom: true,
       };
       customAttractions.push(item);
+
+      if (addDirectlyCheckbox.checked) {
+        const targetDay = newScheduleDaySelect.value || days[0]?.id;
+        const startMinute = Number(newScheduleTimeSelect.value || TIME_START_MIN);
+        const normalizedStart = normalizeMinute(startMinute);
+        const durationMinutes = clampDurationMinutes({ startMinute: normalizedStart }, getItemDurationMinutes(item));
+        setActiveEvents([...(getActiveEvents() || []), {
+          id: `e-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          attractionId: item.id,
+          day: targetDay,
+          startMinute: normalizedStart,
+          hour: Math.floor(normalizedStart / 60),
+          minute: normalizedStart % 60,
+          durationMinutes,
+          duration: durationMinutes / 60,
+        }]);
+      }
+
       newTitleInput.value = "";
       newDurationInput.value = "2";
-      newSuggestedDayInput.value = "";
-      newSuggestedTimeInput.value = "";
       newNoteInput.value = "";
+      addDirectlyCheckbox.checked = false;
       activeFilter = item.category;
       renderAll();
-      saveState();
+      try {
+        await saveState();
+      } catch (err) {
+        console.error("Custom attraction save failed", err);
+        customAttractions = customAttractions.filter(x => x.id !== item.id);
+        Object.values(plans).forEach(plan => {
+          plan.events = (plan.events || []).filter(event => event.attractionId !== item.id);
+        });
+        renderAll();
+        saveStatus.textContent = "新增選項失敗：請檢查 Firebase Rules。";
+      }
     });
 
     resetBtn.addEventListener("click", () => {
